@@ -40,14 +40,20 @@ func NewHarness(t *testing.T, n int) *Harness {
 		ns[i].serverID = i
 		log.Printf("[id:%d] server listens at %s", i, ns[i].GetListenAddr())
 
+		// configuration will be a map of ReplicaID and TCP address
+		// of other peer replicas.
 		configuration := make(map[int]string)
 		for j := 0; j < n; j++ {
 			if j != i {
 				configuration[j] = ns[j].GetListenAddr().String()
 				ns[j].configuration = configuration
 			}
+
+			ns[i].ConnectToPeer(j, ns[j].GetListenAddr())
 		}
+		connected[i] = true
 	}
+	close(ready)
 
 	return &Harness{
 		cluster:   ns,
@@ -58,11 +64,55 @@ func NewHarness(t *testing.T, n int) *Harness {
 }
 
 func (h *Harness) Shutdown() {
-	// for i := 0; i < h.n; i++ {
-	// 	h.cluster[i].DisconnectAll()
-	// 	h.connected[i] = false
-	// }
+	for i := 0; i < h.n; i++ {
+		h.cluster[i].DisconnectAll()
+		h.connected[i] = false
+	}
 	for i := 0; i < h.n; i++ {
 		h.cluster[i].Shutdown()
 	}
+}
+
+func (h *Harness) DisconnectPeer(ID int) {
+	tlog("Disconnect %d", ID)
+	h.cluster[ID].DisconnectAll()
+	for j := 0; j < h.n; j++ {
+		if j != ID {
+			h.cluster[j].DisconnectPeer(ID)
+		}
+	}
+	h.connected[ID] = false
+}
+
+func (h *Harness) ReconnectPeer(ID int) {
+	tlog("Reconnect %d", ID)
+	for j := 0; j < h.n; j++ {
+		if j != ID {
+			if err := h.cluster[ID].ConnectToPeer(j, h.cluster[j].GetListenAddr()); err != nil {
+				h.t.Fatal(err)
+			}
+			if err := h.cluster[j].ConnectToPeer(ID, h.cluster[ID].GetListenAddr()); err != nil {
+				h.t.Fatal(err)
+			}
+		}
+	}
+	h.connected[ID] = true
+}
+
+// Returns primary's ID and viewNum.
+func (h *Harness) CheckSinglePrimary() (int, int) {
+	return 0, 0
+}
+
+func (h *Harness) CheckNoPrimary() {
+
+}
+
+func tlog(format string, a ...interface{}) {
+	format = "[TEST] " + format
+	log.Printf(format, a...)
+}
+
+func sleepMs(n int) {
+	time.Sleep(time.Duration(n) * time.Millisecond)
 }
