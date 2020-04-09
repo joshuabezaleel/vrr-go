@@ -1,8 +1,17 @@
 package vrr
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestHarnessBasic(t *testing.T) {
 	h := NewHarness(t, 4)
 	defer h.Shutdown()
+
+	for i := 0; i < h.n; i++ {
+		h.cluster[i].replica.greetOthers()
+	}
+
+	time.Sleep(3 * time.Second)
 }

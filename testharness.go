@@ -38,19 +38,27 @@ func NewHarness(t *testing.T, n int) *Harness {
 
 	for i := 0; i < n; i++ {
 		ns[i].serverID = i
-		log.Printf("[id:%d] server listens at %s", i, ns[i].GetListenAddr())
+		log.Printf("[id:%d] server listens at %s", ns[i].serverID, ns[i].GetListenAddr())
 
 		// configuration will be a map of ReplicaID and TCP address
 		// of other peer replicas.
 		configuration := make(map[int]string)
 		for j := 0; j < n; j++ {
 			if j != i {
+				// fmt.Println(ns[j].GetListenAddr().String())
 				configuration[j] = ns[j].GetListenAddr().String()
-				ns[j].configuration = configuration
+				// fmt.Println(configuration)
 			}
-
-			ns[i].ConnectToPeer(j, ns[j].GetListenAddr())
+			err := ns[i].ConnectToPeer(j, ns[j].GetListenAddr())
+			if err != nil {
+				log.Fatalf("%d failed to connect with %d :(", i, j)
+			}
 		}
+		ns[i].configuration = configuration
+
+		ns[i].replica.ID = i
+		ns[i].replica.configuration = configuration
+
 		connected[i] = true
 	}
 	close(ready)
@@ -99,7 +107,7 @@ func (h *Harness) ReconnectPeer(ID int) {
 	h.connected[ID] = true
 }
 
-// Returns primary's ID and viewNum.
+// CheckSinglePrimary returns primary's ID and viewNum.
 func (h *Harness) CheckSinglePrimary() (int, int) {
 	return 0, 0
 }

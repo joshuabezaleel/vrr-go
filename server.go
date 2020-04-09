@@ -38,7 +38,7 @@ func NewServer(ready <-chan interface{}) *Server {
 
 func (s *Server) Serve() {
 	s.mu.Lock()
-	s.replica = NewReplica()
+	s.replica = NewReplica(s.serverID, s.configuration, s, s.ready)
 
 	s.rpcServer = rpc.NewServer()
 	s.rpcProxy = &RPCProxy{r: s.replica}
@@ -139,6 +139,6 @@ type RPCProxy struct {
 	r *Replica
 }
 
-func (rpp *RPCProxy) TestRPC(args TestArgs, reply *TestReply) error {
+func (rpp *RPCProxy) Hello(args HelloArgs, reply *HelloReply) error {
 	return nil
 }
