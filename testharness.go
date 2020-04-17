@@ -58,6 +58,7 @@ func NewHarness(t *testing.T, n int) *Harness {
 
 		ns[i].replica.ID = i
 		ns[i].replica.configuration = configuration
+		ns[i].replica.primaryID = 0
 
 		connected[i] = true
 	}

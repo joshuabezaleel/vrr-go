@@ -3,9 +3,11 @@ package vrr
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/rpc"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -140,5 +142,7 @@ type RPCProxy struct {
 }
 
 func (rpp *RPCProxy) Hello(args HelloArgs, reply *HelloReply) error {
-	return nil
+	time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
+
+	return rpp.r.Hello(args, reply)
 }
