@@ -122,7 +122,6 @@ func (r *Replica) blastStartViewChange() {
 	var repliesReceived int32 = 1
 
 	for peerID := range r.configuration {
-		r.dlog("masuk 2")
 		go func(peerID int) {
 			args := StartViewChangeArgs{
 				viewNum:   savedCurrentViewNum,
@@ -174,24 +173,24 @@ func (r *Replica) initiateViewChange() {
 	r.viewChangeResetEvent = time.Now()
 	r.dlog("initiates VIEW CHANGE; view=%d; log=<ADDED LATER>", savedCurrentViewNum)
 
-	for peerID := range r.configuration {
-		go func(peerID int) {
-			args := StartViewChangeArgs{
-				viewNum:   savedCurrentViewNum,
-				replicaID: r.ID,
-			}
-			var reply StartViewChangeReply
+	// for peerID := range r.configuration {
+	// 	go func(peerID int) {
+	// 		args := StartViewChangeArgs{
+	// 			viewNum:   savedCurrentViewNum,
+	// 			replicaID: r.ID,
+	// 		}
+	// 		var reply StartViewChangeReply
 
-			r.dlog("HOOBA sending <START-VIEW-CHANGE> to %d: %+v", peerID, args)
-			if err := r.server.Call(peerID, "Replica.StartViewChange", args, &reply); err == nil {
-				r.mu.Lock()
-				defer r.mu.Unlock()
-				r.dlog("received <START-VIEW-CHANGE> reply %+v", reply)
-				// reply.isReplied = true
-				return
-			}
-		}(peerID)
-	}
+	// 		r.dlog("sending <START-VIEW-CHANGE> to %d: %+v", peerID, args)
+	// 		if err := r.server.Call(peerID, "Replica.StartViewChange", args, &reply); err == nil {
+	// 			r.mu.Lock()
+	// 			defer r.mu.Unlock()
+	// 			r.dlog("received <START-VIEW-CHANGE> reply %+v", reply)
+	// 			// reply.isReplied = true
+	// 			return
+	// 		}
+	// 	}(peerID)
+	// }
 
 	// Run another ViewChangeTimer in case this ViewChange is failed.
 	go r.runViewChangeTimer()

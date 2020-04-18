@@ -13,5 +13,5 @@ func TestHarnessBasic(t *testing.T) {
 		h.cluster[i].replica.greetOthers()
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 }
