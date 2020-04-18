@@ -152,3 +152,9 @@ func (rpp *RPCProxy) StartViewChange(args StartViewChangeArgs, reply *StartViewC
 
 	return rpp.r.StartViewChange(args, reply)
 }
+
+func (rpp *RPCProxy) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
+	time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
+
+	return rpp.r.DoViewChange(args, reply)
+}

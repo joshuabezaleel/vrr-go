@@ -90,17 +90,9 @@ func (r *Replica) runViewChangeTimer() {
 
 		r.mu.Lock()
 
-		// IF START-VIEW-CHANGE >= f+1
-		//
-		// TO-DO
 		if r.status == ViewChange {
 			r.dlog("status become View-Change, blast <START-VIEW-CHANGE> to all replicas")
 			r.blastStartViewChange()
-
-			// TODO
-			// if r.ID == r.primaryID {
-
-			// }
 			r.mu.Unlock()
 			return
 		}
@@ -150,13 +142,8 @@ func (r *Replica) blastStartViewChange() {
 }
 
 func (r *Replica) sendDoViewChange() {
-	// Commenting this for a while to prevent build error.
-
-	// r.mu.Lock()
-	// nextPrimaryID = r.nextPrimary(r.primaryID)
+	// nextPrimaryID := nextPrimary(r.primaryID, r.configuration)
 	// newViewNum := r.viewNum
-	// r.mu.Unlock()
-
 	// args := DoViewChangeArgs{}
 	// var reply DoViewChangeReply
 
@@ -167,39 +154,28 @@ func (r *Replica) sendDoViewChange() {
 }
 
 func (r *Replica) initiateViewChange() {
-	// r.dlog("Timed out, initiate viewchange")
 	r.status = ViewChange
 	r.viewNum += 1
 	savedCurrentViewNum := r.viewNum
 	r.viewChangeResetEvent = time.Now()
 	r.dlog("initiates VIEW CHANGE; view=%d; log=<ADDED LATER>", savedCurrentViewNum)
 
-	// for peerID := range r.configuration {
-	// 	go func(peerID int) {
-	// 		args := StartViewChangeArgs{
-	// 			viewNum:   savedCurrentViewNum,
-	// 			replicaID: r.ID,
-	// 		}
-	// 		var reply StartViewChangeReply
-
-	// 		r.dlog("sending <START-VIEW-CHANGE> to %d: %+v", peerID, args)
-	// 		if err := r.server.Call(peerID, "Replica.StartViewChange", args, &reply); err == nil {
-	// 			r.mu.Lock()
-	// 			defer r.mu.Unlock()
-	// 			r.dlog("received <START-VIEW-CHANGE> reply %+v", reply)
-	// 			// reply.isReplied = true
-	// 			return
-	// 		}
-	// 	}(peerID)
-	// }
-
 	// Run another ViewChangeTimer in case this ViewChange is failed.
 	go r.runViewChangeTimer()
 }
 
-type DoViewChangeArgs struct{}
+type DoViewChangeArgs struct {
+	ViewNum    int
+	OldViewNum int
+	CommitNum  int
+	OpNum      int
+	OpLog      interface{}
+}
 
-type DoViewChangeReply struct{}
+type DoViewChangeReply struct {
+	IsReplied bool
+	ReplicaID int
+}
 
 func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
 	return nil
@@ -212,6 +188,7 @@ type StartViewChangeArgs struct {
 
 type StartViewChangeReply struct {
 	IsReplied bool
+	ReplicaID int
 }
 
 func (r *Replica) StartViewChange(args StartViewChangeArgs, reply *StartViewChangeReply) error {
@@ -229,27 +206,13 @@ func (r *Replica) StartViewChange(args StartViewChangeArgs, reply *StartViewChan
 		// Set status to `view-change`, set `view-num` to the message's `view-num`
 		// and reply with <START-VIEW-CHANGE> to all replicas.
 		reply.IsReplied = true
+		reply.ReplicaID = r.ID
 		r.status = ViewChange
 		r.viewNum = args.ViewNum
-		// savedCurrentViewNum := r.viewNum
 		r.viewChangeResetEvent = time.Now()
-
-		// TODO
-		// for peerID := range r.configuration {
-		// 	go func(peerID int) {
-		// 		args := StartViewChangeArgs{
-		// 			viewNum:   savedCurrentViewNum,
-		// 			replicaID: r.ID,
-		// 		}
-		// 		var reply StartViewChangeReply
-
-		// 		r.dlog("received <START-VIEW-CHANGE>, will also send it to %d: %+v", peerID, args)
-		// 		if err := r.server.Call(peerID, "Replica.StartViewChange", args, &reply); err == nil {
-		// 			// reply.isReplied = true
-		// 			return
-		// 		}
-		// 	}(peerID)
-		// }
+	} else if args.ViewNum == r.viewNum {
+		reply.IsReplied = true
+		reply.ReplicaID = r.ID
 	}
 	r.dlog("... StartViewChange replied: %+v", reply)
 	return nil
@@ -274,10 +237,6 @@ func (r *Replica) Hello(args HelloArgs, reply *HelloReply) error {
 	return nil
 }
 
-// func (r *Replica) startSayingHi() {
-// 	r.greetOthers()
-// }
-
 func (r *Replica) greetOthers() {
 	for peerID := range r.configuration {
 		args := HelloArgs{
@@ -297,9 +256,9 @@ func (r *Replica) greetOthers() {
 	}
 }
 
-func (r *Replica) nextPrimary(primaryID int) int {
-	nextPrimaryID := r.primaryID + 1
-	if nextPrimaryID == len(r.configuration)+1 {
+func nextPrimary(primaryID int, config map[int]string) int {
+	nextPrimaryID := primaryID + 1
+	if nextPrimaryID == len(config)+1 {
 		nextPrimaryID = 0
 	}
 
