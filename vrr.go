@@ -115,27 +115,28 @@ func (r *Replica) runViewChangeTimer() {
 }
 
 func (r *Replica) blastStartViewChange() {
-	r.dlog("masuk")
-	r.mu.Lock()
 	savedCurrentViewNum := r.viewNum
-	r.mu.Unlock()
 	var repliesReceived int32 = 1
 
 	for peerID := range r.configuration {
 		go func(peerID int) {
 			args := StartViewChangeArgs{
-				viewNum:   savedCurrentViewNum,
-				replicaID: r.ID,
+				ViewNum:   savedCurrentViewNum,
+				ReplicaID: r.ID,
 			}
 			var reply StartViewChangeReply
 
 			r.dlog("sending <START-VIEW-CHANGE> to %d: %+v", peerID, args)
-			if err := r.server.Call(peerID, "Replica.StartViewChange", args, &reply); err == nil {
+			err := r.server.Call(peerID, "Replica.StartViewChange", args, &reply)
+			if err != nil {
+				log.Println(err)
+			}
+			if err == nil {
 				r.mu.Lock()
 				defer r.mu.Unlock()
 				r.dlog("received <START-VIEW-CHANGE> reply +%v", reply)
 
-				if reply.isReplied {
+				if reply.IsReplied {
 					replies := int(atomic.AddInt32(&repliesReceived, 1))
 					if replies*2 > len(r.configuration)+1 {
 						r.dlog("acknowledge that quorum agrees on a view change. Sending <DO-VIEW-CHANGE> to new designated primary")
@@ -205,12 +206,12 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 }
 
 type StartViewChangeArgs struct {
-	viewNum   int
-	replicaID int
+	ViewNum   int
+	ReplicaID int
 }
 
 type StartViewChangeReply struct {
-	isReplied bool
+	IsReplied bool
 }
 
 func (r *Replica) StartViewChange(args StartViewChangeArgs, reply *StartViewChangeReply) error {
@@ -224,12 +225,12 @@ func (r *Replica) StartViewChange(args StartViewChangeArgs, reply *StartViewChan
 
 	// If the incoming <START-VIEW-CHANGE> message got a bigger `view-num`
 	// than the one that the replica has.
-	if args.viewNum > r.viewNum {
+	if args.ViewNum > r.viewNum {
 		// Set status to `view-change`, set `view-num` to the message's `view-num`
 		// and reply with <START-VIEW-CHANGE> to all replicas.
-		reply.isReplied = true
+		reply.IsReplied = true
 		r.status = ViewChange
-		r.viewNum = args.viewNum
+		r.viewNum = args.ViewNum
 		// savedCurrentViewNum := r.viewNum
 		r.viewChangeResetEvent = time.Now()
 
