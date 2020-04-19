@@ -45,8 +45,14 @@ type Replica struct {
 
 	server *Server
 
-	viewNum   int
-	primaryID int
+	oldViewNum int
+	viewNum    int
+	commitNum  int
+	opNum      int
+	opLog      []interface{}
+	primaryID  int
+
+	doViewChangeCount int
 
 	status               ReplicaStatus
 	viewChangeResetEvent time.Time
@@ -57,6 +63,8 @@ func NewReplica(ID int, configuration map[int]string, server *Server, ready <-ch
 	replica.ID = ID
 	replica.configuration = configuration
 	replica.server = server
+	replica.oldViewNum = -1
+	replica.doViewChangeCount = 0
 
 	replica.status = Normal
 
@@ -92,8 +100,19 @@ func (r *Replica) runViewChangeTimer() {
 
 		if r.status == ViewChange {
 			r.dlog("status become View-Change, blast <START-VIEW-CHANGE> to all replicas")
+			r.doViewChangeCount = 0
 			r.blastStartViewChange()
+
+			if r.doViewChangeCount != 0 {
+				r.dlog("ASD?")
+			}
+
 			r.mu.Unlock()
+			return
+		}
+
+		if r.status == ViewChange && r.doViewChangeCount != 0 {
+			r.dlog("MASUK DONG")
 			return
 		}
 
@@ -109,6 +128,7 @@ func (r *Replica) runViewChangeTimer() {
 func (r *Replica) blastStartViewChange() {
 	savedCurrentViewNum := r.viewNum
 	var repliesReceived int32 = 1
+	var sendStartViewChangeAlready bool = false
 
 	for peerID := range r.configuration {
 		go func(peerID int) {
@@ -128,29 +148,49 @@ func (r *Replica) blastStartViewChange() {
 				defer r.mu.Unlock()
 				r.dlog("received <START-VIEW-CHANGE> reply +%v", reply)
 
-				if reply.IsReplied {
+				if reply.IsReplied && !sendStartViewChangeAlready {
 					replies := int(atomic.AddInt32(&repliesReceived, 1))
 					if replies*2 > len(r.configuration)+1 {
 						r.dlog("acknowledge that quorum agrees on a view change. Sending <DO-VIEW-CHANGE> to new designated primary")
 						r.sendDoViewChange()
+						sendStartViewChangeAlready = true
 						return
 					}
 				}
+
+				// if sendStartViewChangeAlready {
+				// 	return
+				// }
 			}
 		}(peerID)
 	}
 }
 
 func (r *Replica) sendDoViewChange() {
-	// nextPrimaryID := nextPrimary(r.primaryID, r.configuration)
+	nextPrimaryID := nextPrimary(r.primaryID, r.configuration)
 	// newViewNum := r.viewNum
-	// args := DoViewChangeArgs{}
-	// var reply DoViewChangeReply
 
-	// r.dlog("sending <DO-VIEW-CHANGE> to the next primary %d: %+v", nextPrimaryID, args)
-	// if err := r.server.Call(nextPrimaryID, "Replica.DoViewChange", args, &reply); err == nil {
+	args := DoViewChangeArgs{
+		ViewNum:    r.viewNum,
+		OldViewNum: r.oldViewNum,
+		CommitNum:  r.commitNum,
+		OpNum:      r.opNum,
+		OpLog:      r.opLog,
+	}
+	var reply DoViewChangeReply
 
-	// }
+	r.dlog("sending <DO-VIEW-CHANGE> to the next primary %d: %+v", nextPrimaryID, args)
+	err := r.server.Call(nextPrimaryID, "Replica.DoViewChange", args, &reply)
+	if err != nil {
+		r.dlog("error: %v", err.Error())
+	}
+	if err == nil {
+		r.dlog("ya")
+		// r.mu.Lock()
+		// defer r.mu.Unlock()
+		r.dlog("received <DO-VIEW-CHANGE> reply +%v", reply)
+		return
+	}
 }
 
 func (r *Replica) initiateViewChange() {
@@ -169,7 +209,7 @@ type DoViewChangeArgs struct {
 	OldViewNum int
 	CommitNum  int
 	OpNum      int
-	OpLog      interface{}
+	OpLog      []interface{}
 }
 
 type DoViewChangeReply struct {
@@ -178,6 +218,25 @@ type DoViewChangeReply struct {
 }
 
 func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
+	// r.dlog("yo")
+	// r.mu.Lock()
+	// defer r.mu.Unlock()
+
+	// var doViewChangeMessageReceived int32 = 1
+
+	if r.status == Dead {
+		return nil
+	}
+	r.dlog("DoViewChange: %+v [currentView=%d]", args, r.viewNum)
+
+	// messageCount := int(atomic.AddInt32(&doViewChangeMessageReceived, 1))
+	r.doViewChangeCount++
+	r.dlog("DoViewChange messages received: %d", r.doViewChangeCount)
+
+	if r.doViewChangeCount >= (len(r.configuration)/2)+1 {
+		r.dlog("quorum coy")
+	}
+
 	return nil
 }
 
@@ -208,6 +267,7 @@ func (r *Replica) StartViewChange(args StartViewChangeArgs, reply *StartViewChan
 		reply.IsReplied = true
 		reply.ReplicaID = r.ID
 		r.status = ViewChange
+		r.oldViewNum = r.viewNum
 		r.viewNum = args.ViewNum
 		r.viewChangeResetEvent = time.Now()
 	} else if args.ViewNum == r.viewNum {
