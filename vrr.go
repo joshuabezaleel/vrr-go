@@ -103,18 +103,18 @@ func (r *Replica) runViewChangeTimer() {
 			r.doViewChangeCount = 0
 			r.blastStartViewChange()
 
-			if r.doViewChangeCount != 0 {
-				r.dlog("ASD?")
-			}
+			// if r.doViewChangeCount != 0 {
+			// 	r.dlog("ASD?")
+			// }
 
 			r.mu.Unlock()
 			return
 		}
 
-		if r.status == ViewChange && r.doViewChangeCount != 0 {
-			r.dlog("MASUK DONG")
-			return
-		}
+		// if r.status == ViewChange && r.doViewChangeCount != 0 {
+		// 	r.dlog("MASUK DONG")
+		// 	return
+		// }
 
 		if elapsed := time.Since(r.viewChangeResetEvent); elapsed >= timeoutDuration {
 			r.initiateViewChange()
@@ -157,10 +157,6 @@ func (r *Replica) blastStartViewChange() {
 						return
 					}
 				}
-
-				// if sendStartViewChangeAlready {
-				// 	return
-				// }
 			}
 		}(peerID)
 	}
@@ -181,13 +177,7 @@ func (r *Replica) sendDoViewChange() {
 
 	r.dlog("sending <DO-VIEW-CHANGE> to the next primary %d: %+v", nextPrimaryID, args)
 	err := r.server.Call(nextPrimaryID, "Replica.DoViewChange", args, &reply)
-	if err != nil {
-		r.dlog("error: %v", err.Error())
-	}
 	if err == nil {
-		r.dlog("ya")
-		// r.mu.Lock()
-		// defer r.mu.Unlock()
 		r.dlog("received <DO-VIEW-CHANGE> reply +%v", reply)
 		return
 	}
@@ -218,23 +208,16 @@ type DoViewChangeReply struct {
 }
 
 func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
-	// r.dlog("yo")
-	// r.mu.Lock()
-	// defer r.mu.Unlock()
-
-	// var doViewChangeMessageReceived int32 = 1
-
 	if r.status == Dead {
 		return nil
 	}
 	r.dlog("DoViewChange: %+v [currentView=%d]", args, r.viewNum)
 
-	// messageCount := int(atomic.AddInt32(&doViewChangeMessageReceived, 1))
 	r.doViewChangeCount++
 	r.dlog("DoViewChange messages received: %d", r.doViewChangeCount)
 
-	if r.doViewChangeCount >= (len(r.configuration)/2)+1 {
-		r.dlog("quorum coy")
+	if r.doViewChangeCount > (len(r.configuration)/2)+1 {
+		r.dlog("quorum")
 	}
 
 	return nil
