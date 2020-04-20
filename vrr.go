@@ -194,6 +194,10 @@ func (r *Replica) initiateViewChange() {
 	go r.runViewChangeTimer()
 }
 
+func (r *Replica) blastStartView() {
+	r.dlog("BLAST START VIEW")
+}
+
 type DoViewChangeArgs struct {
 	ViewNum    int
 	OldViewNum int
@@ -208,6 +212,9 @@ type DoViewChangeReply struct {
 }
 
 func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.status == Dead {
 		return nil
 	}
@@ -218,6 +225,11 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 
 	if r.doViewChangeCount > (len(r.configuration)/2)+1 {
 		r.dlog("quorum")
+		// TODO
+		// Comparing messages to other replicas' data and taking the newest.
+		r.commitNum = args.CommitNum
+		r.dlog("commitNum = %v", r.commitNum)
+		r.blastStartView()
 	}
 
 	return nil
