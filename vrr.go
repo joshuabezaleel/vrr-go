@@ -52,7 +52,13 @@ type Replica struct {
 	opLog      []interface{}
 	primaryID  int
 
+	// These are used for saving data when the replica is the next designated primary
+	// and are sorting out data from other backup replicas.
 	doViewChangeCount int
+	tempViewNum       int
+	tempOpLog         []interface{}
+	tempOpNum         int
+	tempCommitNum     int
 
 	status               ReplicaStatus
 	viewChangeResetEvent time.Time
@@ -98,17 +104,25 @@ func (r *Replica) runViewChangeTimer() {
 
 		r.mu.Lock()
 
+		if r.status == Normal && r.primaryID == r.ID {
+			// TODO
+			// Implement the kind of sendLeaderHeartbeat
+		}
+
 		if r.status == ViewChange {
 			r.dlog("status become View-Change, blast <START-VIEW-CHANGE> to all replicas")
 			r.doViewChangeCount = 0
+			r.mu.Unlock()
 			r.blastStartViewChange()
 
 			// if r.doViewChangeCount != 0 {
 			// 	r.dlog("ASD?")
 			// }
-
-			r.mu.Unlock()
 			return
+		}
+
+		if r.doViewChangeCount > (len(r.configuration)/2)+1 {
+			r.dlog("============== quorum DI SINI =============== ")
 		}
 
 		// if r.status == ViewChange && r.doViewChangeCount != 0 {
@@ -131,11 +145,11 @@ func (r *Replica) blastStartViewChange() {
 	var sendStartViewChangeAlready bool = false
 
 	for peerID := range r.configuration {
+		args := StartViewChangeArgs{
+			ViewNum:   savedCurrentViewNum,
+			ReplicaID: r.ID,
+		}
 		go func(peerID int) {
-			args := StartViewChangeArgs{
-				ViewNum:   savedCurrentViewNum,
-				ReplicaID: r.ID,
-			}
 			var reply StartViewChangeReply
 
 			r.dlog("sending <START-VIEW-CHANGE> to %d: %+v", peerID, args)
@@ -164,7 +178,6 @@ func (r *Replica) blastStartViewChange() {
 
 func (r *Replica) sendDoViewChange() {
 	nextPrimaryID := nextPrimary(r.primaryID, r.configuration)
-	// newViewNum := r.viewNum
 
 	args := DoViewChangeArgs{
 		ViewNum:    r.viewNum,
@@ -194,6 +207,76 @@ func (r *Replica) initiateViewChange() {
 	go r.runViewChangeTimer()
 }
 
+func (r *Replica) blastStartView() {
+	r.mu.Lock()
+	r.status = Normal
+	savedViewNum := r.viewNum
+	savedOpLog := r.opLog
+	savedOpNum := r.opNum
+	savedCommitNum := r.commitNum
+	r.mu.Unlock()
+
+	for peerID := range r.configuration {
+		args := StartViewArgs{
+			ViewNum:   savedViewNum,
+			OpLog:     savedOpLog,
+			OpNum:     savedOpNum,
+			CommitNum: savedCommitNum,
+		}
+		go func(peerID int) {
+			var reply StartViewReply
+
+			r.dlog("sending <START-VIEW> to %d: %+v", peerID, args)
+			err := r.server.Call(peerID, "Replica.StartView", args, &reply)
+			if err != nil {
+				log.Println(err)
+			}
+			if err == nil {
+				r.dlog("received <START-VIEW> reply +%v", reply)
+				return
+			}
+		}(peerID)
+	}
+}
+
+type StartViewArgs struct {
+	ViewNum   int
+	OpLog     []interface{}
+	OpNum     int
+	CommitNum int
+}
+
+type StartViewReply struct {
+	IsReplied bool
+	ReplicaID int
+}
+
+func (r *Replica) StartView(args StartViewArgs, reply *StartViewReply) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.status == Dead {
+		return nil
+	}
+	r.dlog("StartView: %+v [currentView=%d]", args, r.viewNum)
+
+	r.opLog = args.OpLog
+	r.opNum = args.OpNum
+	r.viewNum = args.ViewNum
+	r.status = Normal
+
+	// TODO
+	// Execute all operation from their old commitNum to the new commitNum
+	// and send <PREPARE-OK> for all operations in op-log which haven't been committed yet.
+	//
+	//
+
+	reply.IsReplied = true
+	reply.ReplicaID = r.ID
+
+	return nil
+}
+
 type DoViewChangeArgs struct {
 	ViewNum    int
 	OldViewNum int
@@ -208,16 +291,37 @@ type DoViewChangeReply struct {
 }
 
 func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
+	// r.mu.Lock()
+	// defer r.mu.Unlock()
+
 	if r.status == Dead {
 		return nil
 	}
 	r.dlog("DoViewChange: %+v [currentView=%d]", args, r.viewNum)
 
-	r.doViewChangeCount++
-	r.dlog("DoViewChange messages received: %d", r.doViewChangeCount)
+	if args.ViewNum == r.viewNum {
+		r.doViewChangeCount++
+		r.dlog("DoViewChange messages received: %d", r.doViewChangeCount)
+
+		if args.OldViewNum >= r.oldViewNum {
+			if args.OpNum > r.opNum {
+				r.tempViewNum = args.ViewNum
+				r.tempOpNum = args.OpNum
+				r.tempOpLog = args.OpLog
+			}
+		}
+
+		if args.CommitNum >= r.commitNum {
+			r.tempCommitNum = args.CommitNum
+		}
+	}
 
 	if r.doViewChangeCount > (len(r.configuration)/2)+1 {
-		r.dlog("quorum")
+		r.viewNum = r.tempViewNum
+		r.opNum = r.tempOpNum
+		r.opLog = r.tempOpLog
+		r.commitNum = r.tempCommitNum
+		r.blastStartView()
 	}
 
 	return nil
