@@ -101,13 +101,14 @@ func (r *Replica) runViewChangeTimer() {
 		if r.status == ViewChange {
 			r.dlog("status become View-Change, blast <START-VIEW-CHANGE> to all replicas")
 			r.doViewChangeCount = 0
+			r.mu.Unlock()
 			r.blastStartViewChange()
 
 			// if r.doViewChangeCount != 0 {
 			// 	r.dlog("ASD?")
 			// }
 
-			r.mu.Unlock()
+			// r.mu.Unlock()
 			return
 		}
 
@@ -196,6 +197,52 @@ func (r *Replica) initiateViewChange() {
 
 func (r *Replica) blastStartView() {
 	r.dlog("BLAST START VIEW")
+
+	// r.dlog("here2")
+	// r.mu.Lock()
+	r.dlog("here")
+	savedViewNum := r.viewNum
+	r.dlog("savedViewNum = %v", savedViewNum)
+	// r.mu.Unlock()
+
+	for peerID := range r.configuration {
+		args := StartViewArgs{
+			ViewNum: savedViewNum,
+		}
+		go func(peerID int) {
+			var reply StartViewReply
+
+			r.dlog("sending <START-VIEW> to %d: %+v", peerID, args)
+			err := r.server.Call(peerID, "Replica.StartView", args, &reply)
+			if err != nil {
+				log.Println(err)
+			}
+			if err == nil {
+
+				r.dlog("received <START-VIEW> reply +%v", reply)
+				return
+			}
+		}(peerID)
+	}
+}
+
+type StartViewArgs struct {
+	ViewNum int
+}
+
+type StartViewReply struct {
+	IsReplied bool
+	ReplicaID int
+}
+
+func (r *Replica) StartView(args StartViewArgs, reply *StartViewReply) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	reply.IsReplied = true
+	reply.ReplicaID = r.ID
+
+	return nil
 }
 
 type DoViewChangeArgs struct {
@@ -213,7 +260,6 @@ type DoViewChangeReply struct {
 
 func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	if r.status == Dead {
 		return nil
@@ -229,9 +275,12 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 		// Comparing messages to other replicas' data and taking the newest.
 		r.commitNum = args.CommitNum
 		r.dlog("commitNum = %v", r.commitNum)
+		r.mu.Unlock()
 		r.blastStartView()
+		return nil
 	}
 
+	r.mu.Unlock()
 	return nil
 }
 
