@@ -47,8 +47,6 @@ type Replica struct {
 
 	ID int
 
-	configuration map[int]string
-
 	server *Server
 
 	oldViewNum int
@@ -66,8 +64,19 @@ type Replica struct {
 	tempOpNum         int
 	tempCommitNum     int
 
-	status               ReplicaStatus
+	status        ReplicaStatus
+	configuration map[int]string
+
+	clientTable []clientTableEntry
+
 	viewChangeResetEvent time.Time
+}
+
+type clientTableEntry struct {
+	clientID int
+	reqNum   int
+	reqOp    interface{}
+	resp     interface{}
 }
 
 func NewReplica(ID int, configuration map[int]string, server *Server, ready <-chan interface{}) *Replica {
