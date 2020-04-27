@@ -33,3 +33,10 @@ LAST PART:
 [ ] mungkin harus diimplement di runviewtimer atau ubah2 time.now
 
 [ ] lagi ngetrace satu-satu, sekarang di blastStartViewChange
+
+27/4/2020
+[x] Merging DoViewChange to master
+
+=== TO DO ===
+[ ] Implementing Replica's recovery
+[ ] Protocol optimisations

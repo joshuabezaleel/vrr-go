@@ -238,11 +238,15 @@ func (r *Replica) initiateViewChange() {
 func (r *Replica) blastStartView() {
 	r.mu.Lock()
 	savedViewNum := r.viewNum
+	savedOpLog := r.opLog
+	savedOpNum := r.opNum
 	r.mu.Unlock()
 
 	for peerID := range r.configuration {
 		args := StartViewArgs{
 			ViewNum: savedViewNum,
+			OpLog:   savedOpLog,
+			OpNum:   savedOpNum,
 		}
 		go func(peerID int) {
 			var reply StartViewReply
@@ -264,6 +268,8 @@ func (r *Replica) blastStartView() {
 
 type StartViewArgs struct {
 	ViewNum int
+	OpLog   []interface{}
+	OpNum   int
 }
 
 type StartViewReply struct {
@@ -275,8 +281,25 @@ func (r *Replica) StartView(args StartViewArgs, reply *StartViewReply) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if r.status == Dead {
+		return nil
+	}
+	r.dlog("StartView: %+v [currentView=%d]", args, r.viewNum)
+
 	reply.IsReplied = true
 	reply.ReplicaID = r.ID
+	// var oldOpNum = r.opNum
+
+	r.opLog = args.OpLog
+	r.opNum = args.OpNum
+	r.viewNum = args.ViewNum
+
+	r.status = Normal
+	// TODO
+	// 1. Replica executes all operation from the old commitNum to the new commitNum.
+	// 2. Send <PREPARE-OK> for all operations in opLog which have not been commited yet.
+
+	// go r.runViewChangeTimer()
 
 	return nil
 }
