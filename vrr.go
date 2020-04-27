@@ -129,6 +129,7 @@ func (r *Replica) runViewChangeTimer() {
 		}
 
 		if r.status == StartView {
+			r.dlog("status become Start-View as new designated primary, blast <START-VIEW> to all replicas.")
 			r.mu.Unlock()
 			r.blastStartView()
 			return
@@ -235,54 +236,51 @@ func (r *Replica) initiateViewChange() {
 }
 
 func (r *Replica) blastStartView() {
-	r.dlog("BLAST START VIEW")
-
-	for peerID := range r.configuration {
-		args := HelloArgs{
-			ID: r.ID,
-		}
-
-		go func(peerID int) {
-			r.dlog("%d is trying to say hello to %d!", r.ID, peerID)
-			var reply HelloReply
-			err := r.server.Call(peerID, "Replica.Hello", args, &reply)
-			if err != nil {
-				log.Println(err.Error())
-			}
-			if err == nil {
-				r.mu.Lock()
-				defer r.mu.Unlock()
-				r.dlog("%d says hi back to %d!! yay!", reply.ID, r.ID)
-				return
-			}
-		}(peerID)
-	}
-
-	// r.mu.Lock()
-	// r.dlog("here")
-	// savedViewNum := r.viewNum
-	// r.dlog("savedViewNum = %v", savedViewNum)
-	// // r.mu.Unlock()
-
 	// for peerID := range r.configuration {
-	// 	args := StartViewArgs{
-	// 		ViewNum: savedViewNum,
+	// 	args := HelloArgs{
+	// 		ID: r.ID,
 	// 	}
-	// 	go func(peerID int) {
-	// 		var reply StartViewReply
 
-	// 		r.dlog("sending <START-VIEW> to %d: %+v", peerID, args)
-	// 		err := r.server.Call(peerID, "Replica.StartView", args, &reply)
+	// 	go func(peerID int) {
+	// 		r.dlog("%d is trying to say hello to %d!", r.ID, peerID)
+	// 		var reply HelloReply
+	// 		err := r.server.Call(peerID, "Replica.Hello", args, &reply)
 	// 		if err != nil {
-	// 			log.Println(err)
+	// 			log.Println(err.Error())
 	// 		}
 	// 		if err == nil {
-
-	// 			r.dlog("received <START-VIEW> reply +%v", reply)
+	// 			r.mu.Lock()
+	// 			defer r.mu.Unlock()
+	// 			r.dlog("%d says hi back to %d!! yay!", reply.ID, r.ID)
 	// 			return
 	// 		}
 	// 	}(peerID)
 	// }
+
+	r.mu.Lock()
+	savedViewNum := r.viewNum
+	r.mu.Unlock()
+
+	for peerID := range r.configuration {
+		args := StartViewArgs{
+			ViewNum: savedViewNum,
+		}
+		go func(peerID int) {
+			var reply StartViewReply
+
+			r.dlog("sending <START-VIEW> to %d: %+v", peerID, args)
+			err := r.server.Call(peerID, "Replica.StartView", args, &reply)
+			if err != nil {
+				log.Println(err)
+			}
+			if err == nil {
+				r.mu.Lock()
+				defer r.mu.Unlock()
+				r.dlog("received <START-VIEW> reply +%v", reply)
+				return
+			}
+		}(peerID)
+	}
 }
 
 type StartViewArgs struct {
