@@ -236,27 +236,6 @@ func (r *Replica) initiateViewChange() {
 }
 
 func (r *Replica) blastStartView() {
-	// for peerID := range r.configuration {
-	// 	args := HelloArgs{
-	// 		ID: r.ID,
-	// 	}
-
-	// 	go func(peerID int) {
-	// 		r.dlog("%d is trying to say hello to %d!", r.ID, peerID)
-	// 		var reply HelloReply
-	// 		err := r.server.Call(peerID, "Replica.Hello", args, &reply)
-	// 		if err != nil {
-	// 			log.Println(err.Error())
-	// 		}
-	// 		if err == nil {
-	// 			r.mu.Lock()
-	// 			defer r.mu.Unlock()
-	// 			r.dlog("%d says hi back to %d!! yay!", reply.ID, r.ID)
-	// 			return
-	// 		}
-	// 	}(peerID)
-	// }
-
 	r.mu.Lock()
 	savedViewNum := r.viewNum
 	r.mu.Unlock()
