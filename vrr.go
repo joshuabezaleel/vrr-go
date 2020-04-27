@@ -118,6 +118,7 @@ func (r *Replica) runViewChangeTimer() {
 		}
 
 		if r.status == StartView {
+			r.dlog("here?")
 			r.mu.Unlock()
 			r.blastStartView()
 			return
@@ -190,6 +191,11 @@ func (r *Replica) initiateDoViewChange() {
 func (r *Replica) sendDoViewChange() {
 	nextPrimaryID := nextPrimary(r.primaryID, r.configuration)
 
+	if nextPrimaryID == r.ID {
+		r.doViewChangeCount++
+		return
+	}
+
 	args := DoViewChangeArgs{
 		ViewNum:    r.viewNum,
 		OldViewNum: r.oldViewNum,
@@ -234,8 +240,8 @@ func (r *Replica) blastStartView() {
 				log.Println(err.Error())
 			}
 			if err == nil {
-				// r.mu.Lock()
-				// defer r.mu.Unlock()
+				r.mu.Lock()
+				defer r.mu.Unlock()
 				r.dlog("%d says hi back to %d!! yay!", reply.ID, r.ID)
 				return
 			}
