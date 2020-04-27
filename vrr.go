@@ -129,12 +129,10 @@ func (r *Replica) runViewChangeTimer() {
 		}
 
 		if r.status == StartView {
-			r.dlog("here?")
 			r.mu.Unlock()
 			r.blastStartView()
 			return
 		}
-
 
 		if elapsed := time.Since(r.viewChangeResetEvent); elapsed >= timeoutDuration {
 			r.initiateViewChange()
@@ -260,7 +258,6 @@ func (r *Replica) blastStartView() {
 		}(peerID)
 	}
 
-	r.dlog("here2")
 	// r.mu.Lock()
 	// r.dlog("here")
 	// savedViewNum := r.viewNum
@@ -320,8 +317,6 @@ type DoViewChangeReply struct {
 	ReplicaID int
 }
 
-// TODO
-// ditambah defer dan pake initiate instead of langsung ngirim blast
 func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
 	r.mu.Lock()
 
