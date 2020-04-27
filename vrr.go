@@ -17,6 +17,8 @@ const (
 	ViewChange
 	Transitioning
 	Dead
+	DoViewChange
+	StartView
 )
 
 func (rs ReplicaStatus) String() string {
@@ -31,6 +33,10 @@ func (rs ReplicaStatus) String() string {
 		return "Transitioning"
 	case Dead:
 		return "Dead"
+	case DoViewChange:
+		return "DoViewChange"
+	case StartView:
+		return "StartView"
 	default:
 		panic("unreachable")
 	}
@@ -111,24 +117,24 @@ func (r *Replica) runViewChangeTimer() {
 
 		if r.status == ViewChange {
 			r.dlog("status become View-Change, blast <START-VIEW-CHANGE> to all replicas")
-			r.doViewChangeCount = 0
 			r.mu.Unlock()
 			r.blastStartViewChange()
-
-			// if r.doViewChangeCount != 0 {
-			// 	r.dlog("ASD?")
-			// }
 			return
 		}
 
-		if r.doViewChangeCount > (len(r.configuration)/2)+1 {
-			r.dlog("============== quorum DI SINI =============== ")
+		if r.status == DoViewChange {
+			r.sendDoViewChange()
+			r.mu.Unlock()
+			return
 		}
 
-		// if r.status == ViewChange && r.doViewChangeCount != 0 {
-		// 	r.dlog("MASUK DONG")
-		// 	return
-		// }
+		if r.status == StartView {
+			r.dlog("here?")
+			r.mu.Unlock()
+			r.blastStartView()
+			return
+		}
+
 
 		if elapsed := time.Since(r.viewChangeResetEvent); elapsed >= timeoutDuration {
 			r.initiateViewChange()
@@ -166,7 +172,7 @@ func (r *Replica) blastStartViewChange() {
 					replies := int(atomic.AddInt32(&repliesReceived, 1))
 					if replies*2 > len(r.configuration)+1 {
 						r.dlog("acknowledge that quorum agrees on a view change. Sending <DO-VIEW-CHANGE> to new designated primary")
-						r.sendDoViewChange()
+						r.initiateDoViewChange()
 						sendStartViewChangeAlready = true
 						return
 					}
@@ -176,8 +182,31 @@ func (r *Replica) blastStartViewChange() {
 	}
 }
 
+func (r *Replica) initiateStartView() {
+	r.status = StartView
+	savedCurrentViewNum := r.viewNum
+	r.viewChangeResetEvent = time.Now()
+	r.dlog("initiates START VIEW; view=%d", savedCurrentViewNum)
+
+	go r.runViewChangeTimer()
+}
+
+func (r *Replica) initiateDoViewChange() {
+	r.status = DoViewChange
+	savedCurrentViewNum := r.viewNum
+	r.viewChangeResetEvent = time.Now()
+	r.dlog("initiates DO VIEW CHANGE; view=%d", savedCurrentViewNum)
+
+	go r.runViewChangeTimer()
+}
+
 func (r *Replica) sendDoViewChange() {
 	nextPrimaryID := nextPrimary(r.primaryID, r.configuration)
+
+	if nextPrimaryID == r.ID {
+		r.doViewChangeCount++
+		return
+	}
 
 	args := DoViewChangeArgs{
 		ViewNum:    r.viewNum,
@@ -198,52 +227,69 @@ func (r *Replica) sendDoViewChange() {
 
 func (r *Replica) initiateViewChange() {
 	r.status = ViewChange
+	r.doViewChangeCount = 0
 	r.viewNum += 1
 	savedCurrentViewNum := r.viewNum
 	r.viewChangeResetEvent = time.Now()
 	r.dlog("initiates VIEW CHANGE; view=%d; log=<ADDED LATER>", savedCurrentViewNum)
 
-	// Run another ViewChangeTimer in case this ViewChange is failed.
 	go r.runViewChangeTimer()
 }
 
 func (r *Replica) blastStartView() {
-	r.mu.Lock()
-	r.status = Normal
-	savedViewNum := r.viewNum
-	savedOpLog := r.opLog
-	savedOpNum := r.opNum
-	savedCommitNum := r.commitNum
-	r.mu.Unlock()
+	r.dlog("BLAST START VIEW")
 
 	for peerID := range r.configuration {
-		args := StartViewArgs{
-			ViewNum:   savedViewNum,
-			OpLog:     savedOpLog,
-			OpNum:     savedOpNum,
-			CommitNum: savedCommitNum,
+		args := HelloArgs{
+			ID: r.ID,
 		}
-		go func(peerID int) {
-			var reply StartViewReply
 
-			r.dlog("sending <START-VIEW> to %d: %+v", peerID, args)
-			err := r.server.Call(peerID, "Replica.StartView", args, &reply)
+		go func(peerID int) {
+			r.dlog("%d is trying to say hello to %d!", r.ID, peerID)
+			var reply HelloReply
+			err := r.server.Call(peerID, "Replica.Hello", args, &reply)
 			if err != nil {
-				log.Println(err)
+				log.Println(err.Error())
 			}
 			if err == nil {
-				r.dlog("received <START-VIEW> reply +%v", reply)
+				r.mu.Lock()
+				defer r.mu.Unlock()
+				r.dlog("%d says hi back to %d!! yay!", reply.ID, r.ID)
 				return
 			}
 		}(peerID)
 	}
+
+	r.dlog("here2")
+	// r.mu.Lock()
+	// r.dlog("here")
+	// savedViewNum := r.viewNum
+	// r.dlog("savedViewNum = %v", savedViewNum)
+	// // r.mu.Unlock()
+
+	// for peerID := range r.configuration {
+	// 	args := StartViewArgs{
+	// 		ViewNum: savedViewNum,
+	// 	}
+	// 	go func(peerID int) {
+	// 		var reply StartViewReply
+
+	// 		r.dlog("sending <START-VIEW> to %d: %+v", peerID, args)
+	// 		err := r.server.Call(peerID, "Replica.StartView", args, &reply)
+	// 		if err != nil {
+	// 			log.Println(err)
+	// 		}
+	// 		if err == nil {
+
+	// 			r.dlog("received <START-VIEW> reply +%v", reply)
+	// 			return
+	// 		}
+	// 	}(peerID)
+	// }
 }
 
 type StartViewArgs struct {
-	ViewNum   int
-	OpLog     []interface{}
-	OpNum     int
-	CommitNum int
+	ViewNum int
 }
 
 type StartViewReply struct {
@@ -254,22 +300,6 @@ type StartViewReply struct {
 func (r *Replica) StartView(args StartViewArgs, reply *StartViewReply) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	if r.status == Dead {
-		return nil
-	}
-	r.dlog("StartView: %+v [currentView=%d]", args, r.viewNum)
-
-	r.opLog = args.OpLog
-	r.opNum = args.OpNum
-	r.viewNum = args.ViewNum
-	r.status = Normal
-
-	// TODO
-	// Execute all operation from their old commitNum to the new commitNum
-	// and send <PREPARE-OK> for all operations in op-log which haven't been committed yet.
-	//
-	//
 
 	reply.IsReplied = true
 	reply.ReplicaID = r.ID
@@ -290,9 +320,10 @@ type DoViewChangeReply struct {
 	ReplicaID int
 }
 
+// TODO
+// ditambah defer dan pake initiate instead of langsung ngirim blast
 func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) error {
-	// r.mu.Lock()
-	// defer r.mu.Unlock()
+	r.mu.Lock()
 
 	if r.status == Dead {
 		return nil
@@ -317,13 +348,18 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 	}
 
 	if r.doViewChangeCount > (len(r.configuration)/2)+1 {
-		r.viewNum = r.tempViewNum
-		r.opNum = r.tempOpNum
-		r.opLog = r.tempOpLog
-		r.commitNum = r.tempCommitNum
-		r.blastStartView()
+		// TODO
+		// Comparing messages to other replicas' data and taking the newest.
+		r.commitNum = args.CommitNum
+		r.dlog("commitNum = %v", r.commitNum)
+		r.status = StartView
+		r.initiateStartView()
+		r.mu.Unlock()
+
+		return nil
 	}
 
+	r.mu.Unlock()
 	return nil
 }
 

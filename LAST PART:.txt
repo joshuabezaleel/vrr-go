@@ -1,0 +1,35 @@
+LAST PART:
+
+- DoViewChange, read Acolyer blog
+    - oldViewNum
+
+
+- belum terlalu efektif karena berurutan banget itu dari startviewchange, doviewchange, sampe startview, masih lumayan tightly coupled
+- ada banyak temp variable buat next designated primary
+- PrepareOK is not necessarily a reply but a replica can send it when primary is starting a new view
+- still mostly use mutex and not channel
+- lebih banyak passing mesage dan perubahan state walaupun "ga ada leader election" dibanding raft
+- sempet stuck lama karena mau ngirim doviewchange ke diri sendiri dan stuck karena ngelock pas mau rpc tapi ya masih ada lock pas di timer 
+
+=== NOTES ===
+- cm.ElectionResetEvent = time.Now() is called in :
+    - NewConsensusModule
+    - RequestVote RPC
+    - AppendEntries RPC
+    - startElection
+    - becomeFollower
+- cm.runElectionTimer() is called in:
+    - startElection
+    - becomeFollower
+
+=== WORKING LOG ===
+
+20/4/2020
+[ ] add time.Now() at the appropriate places
+[ ] 
+
+21/4/2020
+[ ] Implementing DoViewChange and StartView as Replica State
+[ ] mungkin harus diimplement di runviewtimer atau ubah2 time.now
+
+[ ] lagi ngetrace satu-satu, sekarang di blastStartViewChange
