@@ -340,7 +340,7 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 		}
 	}
 
-	if r.doViewChangeCount > (len(r.configuration)/2)+1 {
+	if r.doViewChangeCount > (len(r.configuration)/2)+1 && r.status != StartView {
 		// TODO
 		// Comparing messages to other replicas' data and taking the newest.
 		r.commitNum = args.CommitNum
