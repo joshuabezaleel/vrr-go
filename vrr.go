@@ -58,7 +58,13 @@ type Replica struct {
 	opLog      []interface{}
 	primaryID  int
 
+	// These are used for saving data when the replica is the next designated primary
+	// and are sorting out data from other backup replicas.
 	doViewChangeCount int
+	tempViewNum       int
+	tempOpLog         []interface{}
+	tempOpNum         int
+	tempCommitNum     int
 
 	status               ReplicaStatus
 	viewChangeResetEvent time.Time
@@ -104,6 +110,11 @@ func (r *Replica) runViewChangeTimer() {
 
 		r.mu.Lock()
 
+		if r.status == Normal && r.primaryID == r.ID {
+			// TODO
+			// Implement the kind of sendLeaderHeartbeat
+		}
+
 		if r.status == ViewChange {
 			r.dlog("status become View-Change, blast <START-VIEW-CHANGE> to all replicas")
 			r.mu.Unlock()
@@ -124,6 +135,7 @@ func (r *Replica) runViewChangeTimer() {
 			return
 		}
 
+
 		if elapsed := time.Since(r.viewChangeResetEvent); elapsed >= timeoutDuration {
 			r.initiateViewChange()
 			r.mu.Unlock()
@@ -139,11 +151,11 @@ func (r *Replica) blastStartViewChange() {
 	var sendStartViewChangeAlready bool = false
 
 	for peerID := range r.configuration {
+		args := StartViewChangeArgs{
+			ViewNum:   savedCurrentViewNum,
+			ReplicaID: r.ID,
+		}
 		go func(peerID int) {
-			args := StartViewChangeArgs{
-				ViewNum:   savedCurrentViewNum,
-				ReplicaID: r.ID,
-			}
 			var reply StartViewChangeReply
 
 			r.dlog("sending <START-VIEW-CHANGE> to %d: %+v", peerID, args)
@@ -318,8 +330,22 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 	}
 	r.dlog("DoViewChange: %+v [currentView=%d]", args, r.viewNum)
 
-	r.doViewChangeCount++
-	r.dlog("DoViewChange messages received: %d", r.doViewChangeCount)
+	if args.ViewNum == r.viewNum {
+		r.doViewChangeCount++
+		r.dlog("DoViewChange messages received: %d", r.doViewChangeCount)
+
+		if args.OldViewNum >= r.oldViewNum {
+			if args.OpNum > r.opNum {
+				r.tempViewNum = args.ViewNum
+				r.tempOpNum = args.OpNum
+				r.tempOpLog = args.OpLog
+			}
+		}
+
+		if args.CommitNum >= r.commitNum {
+			r.tempCommitNum = args.CommitNum
+		}
+	}
 
 	if r.doViewChangeCount > (len(r.configuration)/2)+1 {
 		// TODO
