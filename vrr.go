@@ -94,11 +94,13 @@ type clientRequest struct {
 	reqOp    interface{}
 }
 
-func NewReplica(ID int, configuration map[int]string, server *Server, ready <-chan interface{}) *Replica {
+func NewReplica(ID int, configuration map[int]string, server *Server, ready <-chan interface{}, commitChan chan<- CommitEntry) *Replica {
 	replica := new(Replica)
 	replica.ID = ID
 	replica.configuration = configuration
 	replica.server = server
+	replica.commitChan = commitChan
+	replica.newCommitReadyChan = make(chan struct{}, 16)
 	replica.oldViewNum = -1
 	replica.doViewChangeCount = 0
 
@@ -111,6 +113,8 @@ func NewReplica(ID int, configuration map[int]string, server *Server, ready <-ch
 		replica.mu.Unlock()
 		replica.runViewChangeTimer()
 	}()
+
+	// go replica.commitChanSender()
 
 	return replica
 }
