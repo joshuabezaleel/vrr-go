@@ -9,6 +9,14 @@ import (
 	"time"
 )
 
+type CommitEntry struct {
+	Command interface{}
+
+	Index int
+
+	View int
+}
+
 type ReplicaStatus int
 
 const (
@@ -49,34 +57,36 @@ type Replica struct {
 
 	server *Server
 
+	commitChan         chan<- CommitEntry
+	newCommitReadyChan chan struct{}
+
 	oldViewNum int
 	viewNum    int
 	commitNum  int
 	opNum      int
-	opLog      []interface{}
+	opLog      map[int]interface{}
 	primaryID  int
 
 	// These are used for saving data when the replica is the next designated primary
 	// and are sorting out data from other backup replicas.
 	doViewChangeCount int
 	tempViewNum       int
-	tempOpLog         []interface{}
+	tempOpLog         map[int]interface{}
 	tempOpNum         int
 	tempCommitNum     int
 
 	status        ReplicaStatus
 	configuration map[int]string
 
-	clientTable []clientTableEntry
+	clientTable map[clientRequest]interface{}
 
 	viewChangeResetEvent time.Time
 }
 
-type clientTableEntry struct {
+type clientRequest struct {
 	clientID int
 	reqNum   int
 	reqOp    interface{}
-	resp     interface{}
 }
 
 func NewReplica(ID int, configuration map[int]string, server *Server, ready <-chan interface{}) *Replica {
@@ -277,7 +287,7 @@ func (r *Replica) blastStartView() {
 
 type StartViewArgs struct {
 	ViewNum int
-	OpLog   []interface{}
+	OpLog   map[int]interface{}
 	OpNum   int
 }
 
@@ -318,7 +328,7 @@ type DoViewChangeArgs struct {
 	OldViewNum int
 	CommitNum  int
 	OpNum      int
-	OpLog      []interface{}
+	OpLog      map[int]interface{}
 }
 
 type DoViewChangeReply struct {
