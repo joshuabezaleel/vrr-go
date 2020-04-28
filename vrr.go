@@ -50,6 +50,11 @@ func (rs ReplicaStatus) String() string {
 	}
 }
 
+type opLogEntry struct {
+	opID      int
+	operation interface{}
+}
+
 type Replica struct {
 	mu sync.Mutex
 
@@ -64,14 +69,14 @@ type Replica struct {
 	viewNum    int
 	commitNum  int
 	opNum      int
-	opLog      map[int]interface{}
+	opLog      []opLogEntry
 	primaryID  int
 
 	// These are used for saving data when the replica is the next designated primary
 	// and are sorting out data from other backup replicas.
 	doViewChangeCount int
 	tempViewNum       int
-	tempOpLog         map[int]interface{}
+	tempOpLog         []opLogEntry
 	tempOpNum         int
 	tempCommitNum     int
 
@@ -118,10 +123,24 @@ func (r *Replica) Report() (int, int, bool, ReplicaStatus) {
 
 func (r *Replica) Stop() {
 	r.mu.Lock()
-	defer r.mu.Lock()
+	defer r.mu.Unlock()
 	r.status = Dead
 	r.dlog("becomes Dead")
 	close(r.newCommitReadyChan)
+}
+
+func (r *Replica) Submit(command interface{}) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.dlog("Submit received by %v: %v", r.status, command)
+	if r.ID == r.primaryID {
+		r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: command})
+		r.dlog("... log=%v", r.opLog)
+		return true
+	}
+
+	return false
 }
 
 func (r *Replica) dlog(format string, args ...interface{}) {
@@ -301,7 +320,7 @@ func (r *Replica) blastStartView() {
 
 type StartViewArgs struct {
 	ViewNum int
-	OpLog   map[int]interface{}
+	OpLog   []opLogEntry
 	OpNum   int
 }
 
@@ -342,7 +361,7 @@ type DoViewChangeArgs struct {
 	OldViewNum int
 	CommitNum  int
 	OpNum      int
-	OpLog      map[int]interface{}
+	OpLog      []opLogEntry
 }
 
 type DoViewChangeReply struct {
