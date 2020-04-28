@@ -110,6 +110,20 @@ func NewReplica(ID int, configuration map[int]string, server *Server, ready <-ch
 	return replica
 }
 
+func (r *Replica) Report() (int, int, bool, ReplicaStatus) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.ID, r.viewNum, r.ID == r.primaryID, r.status
+}
+
+func (r *Replica) Stop() {
+	r.mu.Lock()
+	defer r.mu.Lock()
+	r.status = Dead
+	r.dlog("becomes Dead")
+	close(r.newCommitReadyChan)
+}
+
 func (r *Replica) dlog(format string, args ...interface{}) {
 	format = fmt.Sprintf("[%d] ", r.ID) + format
 	log.Printf(format, args...)
