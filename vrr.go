@@ -159,16 +159,14 @@ func (r *Replica) Submit(req clientRequest) bool {
 
 	r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: req.reqOp})
 	r.opNum++
-	// TODO: add request to clientTable
-	// r.clientTable
-
-	if r.ID == r.primaryID {
-		r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: req.reqOp})
-		r.dlog("... log=%v", r.opLog)
-		return true
+	ctEntry := clientTableEntry{
+		reqNum: req.reqNum,
+		reqOp:  req.reqOp,
 	}
+	r.clientTable[req.clientID] = ctEntry
+	r.dlog("... log=%v", r.opLog)
 
-	return false
+	return true
 }
 
 func (r *Replica) dlog(format string, args ...interface{}) {
