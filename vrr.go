@@ -111,6 +111,7 @@ func NewReplica(ID int, configuration map[int]string, server *Server, ready <-ch
 	replica.newCommitReadyChan = make(chan struct{}, 16)
 	replica.oldViewNum = -1
 	replica.doViewChangeCount = 0
+	replica.clientTable = make(map[int]clientTableEntry)
 
 	replica.status = Normal
 
