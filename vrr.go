@@ -83,7 +83,9 @@ type Replica struct {
 	status        ReplicaStatus
 	configuration map[int]string
 
-	clientTable map[clientRequest]interface{}
+	// clientTable map is owned by every Replica and is a map
+	// of the clientID to its request number, request operation, and response.
+	clientTable map[int]clientTableEntry
 
 	viewChangeResetEvent time.Time
 }
@@ -92,6 +94,12 @@ type clientRequest struct {
 	clientID int
 	reqNum   int
 	reqOp    interface{}
+}
+
+type clientTableEntry struct {
+	reqNum int
+	reqOp  interface{}
+	resp   interface{}
 }
 
 func NewReplica(ID int, configuration map[int]string, server *Server, ready <-chan interface{}, commitChan chan<- CommitEntry) *Replica {
