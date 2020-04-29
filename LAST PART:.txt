@@ -37,6 +37,9 @@ LAST PART:
 27/4/2020
 [x] Merging DoViewChange to master
 
+29/4/2020
+(?) What's lastApplied for on the eliben/raft
+
 === TO DO ===
 [ ] Implementing Replica's recovery
 [ ] Protocol optimisations

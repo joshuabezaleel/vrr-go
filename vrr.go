@@ -133,13 +133,28 @@ func (r *Replica) Stop() {
 	close(r.newCommitReadyChan)
 }
 
-func (r *Replica) Submit(command interface{}) bool {
+func (r *Replica) Submit(req clientRequest) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.dlog("Submit received by %v: %v", r.status, command)
+	r.dlog("Submit received by %v: %v", r.status, req.reqOp)
+	if r.ID != r.primaryID {
+		r.dlog("is not a primary, dropping the request")
+		return false
+	}
+
+	if r.status != Normal {
+		r.dlog("is a primary but not in a Normal status, dropping the request")
+		return false
+	}
+
+	r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: req.reqOp})
+	r.opNum++
+	// TODO: add request to clientTable
+	// r.clientTable
+
 	if r.ID == r.primaryID {
-		r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: command})
+		r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: req.reqOp})
 		r.dlog("... log=%v", r.opLog)
 		return true
 	}
