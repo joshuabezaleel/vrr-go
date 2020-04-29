@@ -344,6 +344,15 @@ func (r *Replica) blastStartView() {
 	}
 }
 
+type PrepareArgs struct{}
+
+type PrepareReply struct{}
+
+func (r *Replica) Prepare(args PrepareArgs, reply *PrepareReply) error {
+
+	return nil
+}
+
 type StartViewArgs struct {
 	ViewNum int
 	OpLog   []opLogEntry
