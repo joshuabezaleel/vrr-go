@@ -497,10 +497,15 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 	}
 
 	if r.doViewChangeCount > (len(r.configuration)/2)+1 && r.status != StartView {
-		// TODO
-		// Comparing messages to other replicas' data and taking the newest.
-		r.commitNum = args.CommitNum
-		r.dlog("commitNum = %v", r.commitNum)
+		// WORKING
+		// Comparing messages to other replicas' data and taking the most updated/recent state.
+		// Primary is back to normal and informs other replicas of the completion of the View-Change
+		r.viewNum = r.tempViewNum
+		r.opNum = r.tempOpNum
+		r.opLog = r.tempOpLog
+		r.commitNum = r.tempCommitNum
+		r.status = Normal
+		r.dlog("as Primary is back to Normal; viewNum = %v; opNum = %v; commitNum = %v; ", r.viewNum, r.opNum, r.commitNum)
 		r.initiateStartView()
 		r.mu.Unlock()
 
