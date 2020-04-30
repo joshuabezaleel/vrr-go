@@ -486,7 +486,7 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 		if args.OldViewNum >= r.oldViewNum {
 			if args.OpNum > r.opNum {
 				r.tempViewNum = args.ViewNum
-				r.tempOpNum = args.OpNum
+				r.tempOpNum = len(args.OpLog)
 				r.tempOpLog = args.OpLog
 			}
 		}
