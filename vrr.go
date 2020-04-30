@@ -344,11 +344,78 @@ func (r *Replica) blastStartView() {
 	}
 }
 
-type PrepareArgs struct{}
+type PrepareArgs struct {
+	ViewNum       int
+	OpNum         int
+	CommitNum     int
+	ClientMessage clientRequest
+}
 
-type PrepareReply struct{}
+type PrepareOKReply struct {
+	ViewNum   int
+	OpNum     int
+	ReplicaID int
+	Status    ReplicaStatus
+}
 
-func (r *Replica) Prepare(args PrepareArgs, reply *PrepareReply) error {
+func (r *Replica) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.status == Dead {
+		return nil
+	}
+	r.dlog("Prepare: %+v [currentView=%d]", args, r.viewNum)
+
+	// TODO
+	// This Replica is behind others, changing status to Recovery and
+	// initiate state transfer from the new primary.
+	if r.viewNum < args.ViewNum {
+		r.status = Recovery
+		r.dlog("is behind PREPARE's viewNum, changing status to Recovery and initiate state transfer from Primary")
+
+		// TODO
+		// Initiate a state transfer from the Primary.
+		// NOTE: Will probably need to run timer here.
+	}
+
+	if r.viewNum == args.ViewNum && r.opNum == args.OpNum-1 {
+		// Not only the viewNum should be the same,
+		// but also the opNum should be strictly consecutive.
+		// If not, replica drops the message and initiates recovery with state transfer
+		if r.opNum != args.OpNum-1 {
+			r.status = Recovery
+			r.dlog("viewNum is the same but different opNum with PREPARE's, changing status to Recovery and initiate state transfer from Primary")
+
+			// TODO
+			// Initiate recovery with state transfer.
+			// Note: Will probably need to run timer here.
+
+			return nil
+		}
+
+		r.opNum++
+		r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: args.ClientMessage.reqOp})
+		ctEntry := clientTableEntry{
+			reqNum: args.ClientMessage.reqNum,
+			reqOp:  args.ClientMessage.reqOp,
+		}
+		r.clientTable[args.ClientMessage.clientID] = ctEntry
+
+		reply.ReplicaID = r.ID
+		reply.Status = r.status
+		reply.ViewNum = r.viewNum
+		reply.OpNum = r.opNum
+
+		r.dlog("... PREPARE-OK replied: %+v", reply)
+	}
+
+	// This also returns nil when this Replica's viewNum is greater (>)
+	// than the incoming argument's viewNum (r.viewNum > args.ViewNum)
+	// which means this replica drops the incoming message.
+	if r.viewNum > args.ViewNum {
+		r.dlog("viewNum is bigger than PREPARE's, drops message")
+	}
 
 	return nil
 }

@@ -39,6 +39,8 @@ LAST PART:
 
 29/4/2020
 (?) What's lastApplied for on the eliben/raft
+[ ] Work on Log replication in normal mode
+
 
 === TO DO ===
 [ ] Implementing Replica's recovery
