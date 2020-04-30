@@ -51,6 +51,8 @@ LAST PART:
 
 NIT
 { } Primary has not change its status to Normal after "elected" and initiating VIEW-CHANGE
+{ } OldViewNum should also be changed when in Normal operation, not only in VIEW-CHANGE
+
 
 
 === TO DO ===
