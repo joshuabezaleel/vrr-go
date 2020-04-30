@@ -41,6 +41,17 @@ LAST PART:
 (?) What's lastApplied for on the eliben/raft
 [ ] Work on Log replication in normal mode
 
+30/4/2020
+[ ] Continuing Log Replication, to primary's quorum
+[ ] Primary's heartbeat mechanism: PREPARE
+[ ] Replica's applying operation:
+    [ ] PREPARE
+    [ ] COMMIT
+        - time (?)
+
+NIT
+{ } Primary has not change its status to Normal after "elected" and initiating VIEW-CHANGE
+
 
 === TO DO ===
 [ ] Implementing Replica's recovery

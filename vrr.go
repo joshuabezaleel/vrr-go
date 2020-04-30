@@ -501,7 +501,6 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 		// Comparing messages to other replicas' data and taking the newest.
 		r.commitNum = args.CommitNum
 		r.dlog("commitNum = %v", r.commitNum)
-		r.status = StartView
 		r.initiateStartView()
 		r.mu.Unlock()
 
