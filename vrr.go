@@ -207,7 +207,7 @@ func (r *Replica) runViewChangeTimer() {
 		}
 
 		if r.status == StartView {
-			r.dlog("status become Start-View as new designated primary, blast <START-VIEW> to all replicas.")
+			r.dlog("status become Start-View as new designated primary, blast <START-VIEW> to all replicas for updated state.")
 			r.mu.Unlock()
 			r.blastStartView()
 			return
