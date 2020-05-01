@@ -503,6 +503,11 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 		r.viewNum = r.tempViewNum
 		r.opNum = r.tempOpNum
 		r.opLog = r.tempOpLog
+
+		// TODO
+		// Execute all commited operations in the operation log between
+		// the old commitNum and the new commitNum (r.tempCommitNum)
+
 		r.commitNum = r.tempCommitNum
 		r.status = Normal
 		r.dlog("as Primary is back to Normal; viewNum = %v; opNum = %v; commitNum = %v; ", r.viewNum, r.opNum, r.commitNum)
