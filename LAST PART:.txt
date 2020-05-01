@@ -3,7 +3,7 @@ LAST PART:
 - DoViewChange, read Acolyer blog
     - oldViewNum
 
-
+=== FOR BLOG ===
 - belum terlalu efektif karena berurutan banget itu dari startviewchange, doviewchange, sampe startview, masih lumayan tightly coupled
 - ada banyak temp variable buat next designated primary
 - PrepareOK is not necessarily a reply but a replica can send it when primary is starting a new view
@@ -59,3 +59,4 @@ NIT
 === TO DO ===
 [ ] Implementing Replica's recovery
 [ ] Protocol optimisations
+[ ] Replica's ViewChange recovery after partition loss
