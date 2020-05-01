@@ -433,11 +433,30 @@ func (r *Replica) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
 	return nil
 }
 
-type CommitArgs struct{}
+type CommitArgs struct {
+	ViewNum   int
+	CommitNum int
+}
 
-type CommitReply struct{}
+type CommitReply struct {
+	IsReplied bool
+	ReplicaID int
+}
 
 func (r *Replica) Commit(args CommitArgs, reply *CommitReply) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.status == Dead {
+		return nil
+	}
+	r.dlog("Commit: %+v [currentView=%d]", args, r.viewNum)
+
+	// TODO
+	// Replica receiving COMMIT message
+	// executes all operation in their opLog between their commitNum and
+	// args' commitNum following the order of the operations
+	// and also advance its commitNum
 
 	return nil
 }
