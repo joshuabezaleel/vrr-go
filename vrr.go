@@ -433,6 +433,15 @@ func (r *Replica) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
 	return nil
 }
 
+type CommitArgs struct{}
+
+type CommitReply struct{}
+
+func (r *Replica) Commit(args CommitArgs, reply *CommitReply) error {
+
+	return nil
+}
+
 type StartViewArgs struct {
 	ViewNum   int
 	OpLog     []opLogEntry

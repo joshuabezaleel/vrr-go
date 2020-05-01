@@ -166,3 +166,15 @@ func (rpp *RPCProxy) StartView(args StartViewArgs, reply *StartViewReply) error 
 
 	return rpp.r.StartView(args, reply)
 }
+
+func (rpp *RPCProxy) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
+	time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
+
+	return rpp.r.Prepare(args, reply)
+}
+
+func (rpp *RPCProxy) Commit(args CommitArgs, reply *CommitReply) error {
+	time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
+
+	return rpp.r.Commit(args, reply)
+}
