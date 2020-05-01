@@ -55,6 +55,7 @@ NIT
 
 1/5/2020
 {v} Primary has not change its status to Normal after "elected" and initiating VIEW-CHANGE
+{ } Updating all the primaryID at all Replicas when new Primary is chosen.
 
 === TO DO ===
 [ ] Implementing Replica's recovery

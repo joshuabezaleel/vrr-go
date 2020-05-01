@@ -318,13 +318,15 @@ func (r *Replica) blastStartView() {
 	savedViewNum := r.viewNum
 	savedOpLog := r.opLog
 	savedOpNum := r.opNum
+	savedPrimaryID := r.ID
 	r.mu.Unlock()
 
 	for peerID := range r.configuration {
 		args := StartViewArgs{
-			ViewNum: savedViewNum,
-			OpLog:   savedOpLog,
-			OpNum:   savedOpNum,
+			ViewNum:   savedViewNum,
+			OpLog:     savedOpLog,
+			OpNum:     savedOpNum,
+			PrimaryID: savedPrimaryID,
 		}
 		go func(peerID int) {
 			var reply StartViewReply
@@ -421,9 +423,10 @@ func (r *Replica) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
 }
 
 type StartViewArgs struct {
-	ViewNum int
-	OpLog   []opLogEntry
-	OpNum   int
+	ViewNum   int
+	OpLog     []opLogEntry
+	OpNum     int
+	PrimaryID int
 }
 
 type StartViewReply struct {
@@ -447,6 +450,7 @@ func (r *Replica) StartView(args StartViewArgs, reply *StartViewReply) error {
 	r.opLog = args.OpLog
 	r.opNum = args.OpNum
 	r.viewNum = args.ViewNum
+	r.primaryID = args.PrimaryID
 
 	r.status = Normal
 	// TODO
@@ -510,6 +514,7 @@ func (r *Replica) DoViewChange(args DoViewChangeArgs, reply *DoViewChangeReply) 
 
 		r.commitNum = r.tempCommitNum
 		r.status = Normal
+		r.primaryID = r.ID
 		r.dlog("as Primary is back to Normal; viewNum = %v; opNum = %v; commitNum = %v; ", r.viewNum, r.opNum, r.commitNum)
 		r.initiateStartView()
 		r.mu.Unlock()
