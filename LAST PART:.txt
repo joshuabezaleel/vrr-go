@@ -50,12 +50,13 @@ LAST PART:
         - time (?)
 
 NIT
-{ } Primary has not change its status to Normal after "elected" and initiating VIEW-CHANGE
-{ } OldViewNum should also be changed when in Normal operation, not only in VIEW-CHANGE
+{->} Primary has not change its status to Normal after "elected" and initiating VIEW-CHANGE
+{->} OldViewNum should also be changed when in Normal operation, not only in VIEW-CHANGE
 
 1/5/2020
 {v} Primary has not change its status to Normal after "elected" and initiating VIEW-CHANGE
-{ } Updating all the primaryID at all Replicas when new Primary is chosen.
+{v} Updating all the primaryID at all Replicas when new Primary is chosen.
+{ } OldViewNum should also be changed when in Normal operation, not only in VIEW-CHANGE
 
 === TO DO ===
 [ ] Implementing Replica's recovery

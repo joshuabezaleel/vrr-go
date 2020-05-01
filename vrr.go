@@ -188,9 +188,14 @@ func (r *Replica) runViewChangeTimer() {
 
 		r.mu.Lock()
 
+		// Replica is the primary
 		if r.status == Normal && r.primaryID == r.ID {
 			// TODO
 			// Implement the kind of sendLeaderHeartbeat
+			r.dlog("as the Primary is sending <PREPARE> or <COMMIT> as the heartbeat messages; viewNum=%v; opNum=%v; commitNum=%v", r.viewNum, r.opNum, r.commitNum)
+			r.primarySendHeartBeats()
+			r.mu.Unlock()
+			return
 		}
 
 		if r.status == ViewChange {
@@ -220,6 +225,12 @@ func (r *Replica) runViewChangeTimer() {
 		}
 		r.mu.Unlock()
 	}
+}
+
+func (r *Replica) primarySendHeartBeats() {
+	go func() {
+
+	}()
 }
 
 func (r *Replica) blastStartViewChange() {
