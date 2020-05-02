@@ -179,7 +179,7 @@ func (r *Replica) Submit(req clientRequest) bool {
 
 	r.mu.Unlock()
 
-	r.primarySendPrepare()
+	r.primarySendPrepare(req)
 
 	return true
 }
@@ -242,8 +242,36 @@ func (r *Replica) runViewChangeTimer() {
 	}
 }
 
-func (r *Replica) primarySendPrepare() {
+func (r *Replica) primarySendPrepare(newRequest clientRequest) {
+	r.mu.Lock()
+	savedViewNum := r.viewNum
+	savedOpNum := r.opNum
+	savedCommitNum := r.commitNum
+	r.mu.Unlock()
 
+	for peerID := range r.configuration {
+		args := PrepareArgs{
+			ViewNum:       savedViewNum,
+			OpNum:         savedOpNum,
+			CommitNum:     savedCommitNum,
+			ClientMessage: newRequest,
+		}
+		go func(peerID int) {
+			var reply PrepareOKReply
+
+			r.dlog("incoming new request (+%v), sending <PREPARE> to %d; viewNum=%v, opNum=%v, commitNum=%v", args.ClientMessage, peerID, savedViewNum, savedOpNum, savedCommitNum)
+			err := r.server.Call(peerID, "Replica.Prepare", args, &reply)
+			if err != nil {
+				log.Printf("failed sending <PREPARE> messages; err = %v", err.Error())
+			}
+			if err == nil {
+				r.mu.Lock()
+				defer r.mu.Unlock()
+				r.dlog("receved <PREPARE-OK> reply +%v", reply)
+
+			}
+		}(peerID)
+	}
 }
 
 func (r *Replica) primarySendCommit() {
