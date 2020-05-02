@@ -229,7 +229,7 @@ func (r *Replica) runViewChangeTimer() {
 		if r.status == StartView {
 			r.dlog("status become Start-View as new designated primary, blast <START-VIEW> to all replicas for updated state.")
 			r.mu.Unlock()
-			r.blastStartView()
+			r.primaryBlastStartView()
 			return
 		}
 
@@ -350,7 +350,7 @@ func (r *Replica) initiateViewChange() {
 	go r.runViewChangeTimer()
 }
 
-func (r *Replica) blastStartView() {
+func (r *Replica) primaryBlastStartView() {
 	r.mu.Lock()
 	savedViewNum := r.viewNum
 	savedOpLog := r.opLog
@@ -368,7 +368,7 @@ func (r *Replica) blastStartView() {
 		go func(peerID int) {
 			var reply StartViewReply
 
-			r.dlog("sending <START-VIEW> to %d: %+v", peerID, args)
+			r.dlog("as Primary is sending <START-VIEW> to %d: %+v", peerID, args)
 			err := r.server.Call(peerID, "Replica.StartView", args, &reply)
 			if err != nil {
 				log.Println(err)
