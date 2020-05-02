@@ -10,6 +10,7 @@ LAST PART:
 - still mostly use mutex and not channel
 - lebih banyak passing mesage dan perubahan state walaupun "ga ada leader election" dibanding raft
 - sempet stuck lama karena mau ngirim doviewchange ke diri sendiri dan stuck karena ngelock pas mau rpc tapi ya masih ada lock pas di timer 
+- kadang butuh baca paper RVV, ataupun bandingin implementasi eliben sama baca paper Raft
 
 === NOTES ===
 - cm.ElectionResetEvent = time.Now() is called in :

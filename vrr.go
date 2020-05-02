@@ -157,6 +157,15 @@ func (r *Replica) Submit(req clientRequest) bool {
 		return false
 	}
 
+	if req.reqNum <= r.clientTable[req.clientID].reqNum {
+		r.dlog("reqNum in clientTable is greater than the incoming request, drops the request and resend the most recent response")
+		// TODO
+		// Resend the most recent response for the
+		// corresponding clientID
+
+		return false
+	}
+
 	r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: req.reqOp})
 	r.opNum++
 	ctEntry := clientTableEntry{
