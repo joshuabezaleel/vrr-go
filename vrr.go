@@ -446,7 +446,7 @@ func (r *Replica) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
 		// NOTE: Will probably need to run timer here.
 	}
 
-	if r.viewNum == args.ViewNum && r.opNum == args.OpNum-1 {
+	if r.viewNum == args.ViewNum {
 		// Not only the viewNum should be the same,
 		// but also the opNum should be strictly consecutive.
 		// If not, replica drops the message and initiates recovery with state transfer
