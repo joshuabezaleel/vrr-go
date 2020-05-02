@@ -144,16 +144,17 @@ func (r *Replica) Stop() {
 
 func (r *Replica) Submit(req clientRequest) bool {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	r.dlog("Submit received by %v: %v", r.status, req.reqOp)
 	if r.ID != r.primaryID {
 		r.dlog("is not a primary, dropping the request")
+		r.mu.Unlock()
 		return false
 	}
 
 	if r.status != Normal {
 		r.dlog("is a primary but not in a Normal status, dropping the request")
+		r.mu.Unlock()
 		return false
 	}
 
@@ -163,6 +164,7 @@ func (r *Replica) Submit(req clientRequest) bool {
 		// Resend the most recent response for the
 		// corresponding clientID
 
+		r.mu.Unlock()
 		return false
 	}
 
@@ -174,6 +176,10 @@ func (r *Replica) Submit(req clientRequest) bool {
 	}
 	r.clientTable[req.clientID] = ctEntry
 	r.dlog("... log=%v", r.opLog)
+
+	r.mu.Unlock()
+
+	r.primarySendPrepare()
 
 	return true
 }
@@ -234,6 +240,10 @@ func (r *Replica) runViewChangeTimer() {
 		}
 		r.mu.Unlock()
 	}
+}
+
+func (r *Replica) primarySendPrepare() {
+
 }
 
 func (r *Replica) primarySendCommit() {
