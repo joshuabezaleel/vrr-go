@@ -201,8 +201,8 @@ func (r *Replica) runViewChangeTimer() {
 		if r.status == Normal && r.primaryID == r.ID {
 			// TODO
 			// Implement the kind of sendLeaderHeartbeat
-			r.dlog("as the Primary is sending <PREPARE> or <COMMIT> as the heartbeat messages; viewNum=%v; opNum=%v; commitNum=%v", r.viewNum, r.opNum, r.commitNum)
-			r.primarySendHeartBeats()
+			r.dlog("as the Primary is sending <COMMIT> messages for hearbeat; viewNum=%v; opNum=%v; commitNum=%v", r.viewNum, r.opNum, r.commitNum)
+			r.primarySendCommit()
 			r.mu.Unlock()
 			return
 		}
@@ -236,8 +236,15 @@ func (r *Replica) runViewChangeTimer() {
 	}
 }
 
-func (r *Replica) primarySendHeartBeats() {
+func (r *Replica) primarySendCommit() {
+	// Primary's heartbeat can be in the form of
+	// <PREPARE> when there's new request from clients or
+	// <COMMIT> can be sent when there's no new requests but this particular
+	// method is used only for <COMMIT> since <PREPARE> will
+	// immediately be issued when the new request is submitted.
 	go func() {
+		ticker := time.NewTicker(50 * time.Millisecond)
+		defer ticker.Stop()
 
 	}()
 }

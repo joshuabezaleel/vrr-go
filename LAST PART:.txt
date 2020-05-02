@@ -59,6 +59,15 @@ NIT
 {v} Updating all the primaryID at all Replicas when new Primary is chosen.
 { } OldViewNum should also be changed when in Normal operation, not only in VIEW-CHANGE
 
+2/5/2020 - Saturday
+- Design decision on sending <PREPARE>, we can:
+    - send <PREPARE> immediately on the Submit method when there's new incoming request to the Primary or
+    - in hearbeat method, check whether opNum equal commitNum and send <PREPARE> when it's unequal
+
+    yet, the second option make it impossible for Primary to know the clientID the operation that has not been commited belongs to, so let's try the former option first while heartbeat can be used for <COMMIT> messages when there's no incoming request.
+
+
+
 === TO DO ===
 [ ] Implementing Replica's recovery
 [ ] Protocol optimisations
