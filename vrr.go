@@ -284,6 +284,12 @@ func (r *Replica) primaryBlastPrepare(newRequest clientRequest) {
 						r.commitNum++
 
 						commitedAlready = true
+
+						if r.commitNum != savedCommitNum {
+							r.dlog("primary increments commitNum := %d", r.commitNum)
+							r.newCommitReadyChan <- struct{}{}
+						}
+
 						return
 					}
 				}
