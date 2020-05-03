@@ -261,7 +261,7 @@ func (r *Replica) primaryBlastPrepare(newRequest clientRequest) {
 		go func(peerID int) {
 			var reply PrepareOKReply
 
-			r.dlog("incoming new request (+%v), sending <PREPARE> to %d; viewNum=%v, opNum=%v, commitNum=%v", args.ClientMessage, peerID, savedViewNum, savedOpNum, savedCommitNum)
+			r.dlog("incoming new request (%+v), sending <PREPARE> to %d; viewNum=%v, opNum=%v, commitNum=%v", args.ClientMessage, peerID, savedViewNum, savedOpNum, savedCommitNum)
 			err := r.server.Call(peerID, "Replica.Prepare", args, &reply)
 			if err != nil {
 				log.Printf("failed sending <PREPARE> messages; err = %v", err.Error())
@@ -269,7 +269,7 @@ func (r *Replica) primaryBlastPrepare(newRequest clientRequest) {
 			if err == nil {
 				r.mu.Lock()
 				defer r.mu.Unlock()
-				r.dlog("receved <PREPARE-OK> reply +%v", reply)
+				r.dlog("receved <PREPARE-OK> reply %+v", reply)
 
 				if reply.IsReplied && !commitedAlready {
 					replies := int(atomic.AddInt32(&prepareOKsReceived, 1))
@@ -369,7 +369,7 @@ func (r *Replica) blastStartViewChange() {
 			if err == nil {
 				r.mu.Lock()
 				defer r.mu.Unlock()
-				r.dlog("received <START-VIEW-CHANGE> reply +%v", reply)
+				r.dlog("received <START-VIEW-CHANGE> reply %+v", reply)
 
 				if reply.IsReplied && !sendStartViewChangeAlready {
 					replies := int(atomic.AddInt32(&repliesReceived, 1))
@@ -423,7 +423,7 @@ func (r *Replica) sendDoViewChange() {
 	r.dlog("sending <DO-VIEW-CHANGE> to the next primary %d: %+v", nextPrimaryID, args)
 	err := r.server.Call(nextPrimaryID, "Replica.DoViewChange", args, &reply)
 	if err == nil {
-		r.dlog("received <DO-VIEW-CHANGE> reply +%v", reply)
+		r.dlog("received <DO-VIEW-CHANGE> reply %+v", reply)
 		return
 	}
 }
@@ -465,7 +465,7 @@ func (r *Replica) primaryBlastStartView() {
 			if err == nil {
 				r.mu.Lock()
 				defer r.mu.Unlock()
-				r.dlog("received <START-VIEW> reply +%v", reply)
+				r.dlog("received <START-VIEW> reply %+v", reply)
 				return
 			}
 		}(peerID)
