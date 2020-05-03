@@ -208,7 +208,7 @@ func (r *Replica) runViewChangeTimer() {
 			// TODO
 			// Implement the kind of sendLeaderHeartbeat
 			r.dlog("as the Primary is sending <COMMIT> messages for hearbeat; viewNum=%v; opNum=%v; commitNum=%v", r.viewNum, r.opNum, r.commitNum)
-			r.primarySendCommit()
+			r.primarySendPeriodicCommits()
 			r.mu.Unlock()
 			return
 		}
@@ -292,7 +292,7 @@ func (r *Replica) primaryBlastPrepare(newRequest clientRequest) {
 	}
 }
 
-func (r *Replica) primarySendCommit() {
+func (r *Replica) primarySendPeriodicCommits() {
 	// Primary's heartbeat can be in the form of
 	// <PREPARE> when there's new request from clients or
 	// <COMMIT> can be sent when there's no new requests but this particular
@@ -302,7 +302,50 @@ func (r *Replica) primarySendCommit() {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 
+		for {
+			r.primarySendCommit()
+			<-ticker.C
+
+			r.mu.Lock()
+			if r.primaryID != r.ID || r.status != Normal {
+				r.mu.Unlock()
+				return
+			}
+			r.mu.Unlock()
+		}
 	}()
+}
+
+func (r *Replica) primarySendCommit() {
+	r.mu.Lock()
+	savedViewNum := r.viewNum
+	// commitNum should be equal to opNum
+	savedCommitNum := r.commitNum
+	r.mu.Unlock()
+
+	for peerID := range r.configuration {
+		args := CommitArgs{
+			ViewNum:   savedViewNum,
+			CommitNum: savedCommitNum,
+		}
+		go func(peerID int) {
+			var reply CommitReply
+
+			r.dlog("sending <COMMIT> to %d: %+v", peerID, args)
+			err := r.server.Call(peerID, "Replica.Commit", args, &reply)
+			if err != nil {
+				log.Printf("failed sending <COMMIT>; error=%v", err.Error())
+			}
+			if err == nil {
+				r.mu.Lock()
+				defer r.mu.Unlock()
+				r.dlog("receved <COMMIT> reply %+v", reply)
+
+				return
+			}
+
+		}(peerID)
+	}
 }
 
 func (r *Replica) blastStartViewChange() {
