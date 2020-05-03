@@ -103,29 +103,29 @@ type clientTableEntry struct {
 }
 
 func NewReplica(ID int, configuration map[int]string, server *Server, ready <-chan interface{}, commitChan chan<- CommitEntry) *Replica {
-	replica := new(Replica)
-	replica.ID = ID
-	replica.configuration = configuration
-	replica.server = server
-	replica.commitChan = commitChan
-	replica.newCommitReadyChan = make(chan struct{}, 16)
-	replica.oldViewNum = -1
-	replica.doViewChangeCount = 0
-	replica.clientTable = make(map[int]clientTableEntry)
+	r := new(Replica)
+	r.ID = ID
+	r.configuration = configuration
+	r.server = server
+	r.commitChan = commitChan
+	r.newCommitReadyChan = make(chan struct{}, 16)
+	r.oldViewNum = -1
+	r.doViewChangeCount = 0
+	r.clientTable = make(map[int]clientTableEntry)
 
-	replica.status = Normal
+	r.status = Normal
 
 	go func() {
 		<-ready
-		replica.mu.Lock()
-		replica.viewChangeResetEvent = time.Now()
-		replica.mu.Unlock()
-		replica.runViewChangeTimer()
+		r.mu.Lock()
+		r.viewChangeResetEvent = time.Now()
+		r.mu.Unlock()
+		r.runViewChangeTimer()
 	}()
 
 	// go replica.commitChanSender()
 
-	return replica
+	return r
 }
 
 func (r *Replica) Report() (int, int, bool, ReplicaStatus) {
