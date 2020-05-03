@@ -179,7 +179,7 @@ func (r *Replica) Submit(req clientRequest) bool {
 
 	r.mu.Unlock()
 
-	r.primarySendPrepare(req)
+	r.primaryBlastPrepare(req)
 
 	return true
 }
@@ -242,11 +242,13 @@ func (r *Replica) runViewChangeTimer() {
 	}
 }
 
-func (r *Replica) primarySendPrepare(newRequest clientRequest) {
+func (r *Replica) primaryBlastPrepare(newRequest clientRequest) {
 	r.mu.Lock()
 	savedViewNum := r.viewNum
 	savedOpNum := r.opNum
 	savedCommitNum := r.commitNum
+	var prepareOKsReceived int32 = 1
+	var commitedAlready bool = false
 	r.mu.Unlock()
 
 	for peerID := range r.configuration {
@@ -269,6 +271,22 @@ func (r *Replica) primarySendPrepare(newRequest clientRequest) {
 				defer r.mu.Unlock()
 				r.dlog("receved <PREPARE-OK> reply +%v", reply)
 
+				if reply.IsReplied && !commitedAlready {
+					replies := int(atomic.AddInt32(&prepareOKsReceived, 1))
+					if replies*2 > len(r.configuration)+1 {
+						r.dlog("quorum agrees on incoming request, ready to be committed")
+
+						// TODO
+						// 1. Primary executes the operation by making an up-call to the service code
+						// 2. increments its own commitNum
+						// 3. send <REPLY> message to Client with viewNum, reqNum, resp,
+						// 4. and updates its clientTable with the result
+						r.commitNum++
+
+						commitedAlready = true
+						return
+					}
+				}
 			}
 		}(peerID)
 	}
@@ -419,6 +437,7 @@ type PrepareArgs struct {
 }
 
 type PrepareOKReply struct {
+	IsReplied bool
 	ViewNum   int
 	OpNum     int
 	ReplicaID int
@@ -469,6 +488,7 @@ func (r *Replica) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
 		}
 		r.clientTable[args.ClientMessage.clientID] = ctEntry
 
+		reply.IsReplied = true
 		reply.ReplicaID = r.ID
 		reply.Status = r.status
 		reply.ViewNum = r.viewNum
