@@ -278,7 +278,7 @@ func (r *Replica) primaryBlastPrepare(newRequest clientRequest) {
 
 						// TODO
 						// 1. Primary executes the operation by making an up-call to the service code
-						// 2. increments its own commitNum
+						// (v) 2. increments its own commitNum
 						// 3. send <REPLY> message to Client with viewNum, reqNum, resp,
 						// 4. and updates its clientTable with the result
 						r.commitNum++
@@ -502,6 +502,15 @@ func (r *Replica) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
 	// which means this replica drops the incoming message.
 	if r.viewNum > args.ViewNum {
 		r.dlog("viewNum is bigger than PREPARE's, drops message")
+	}
+
+	// Replica learns that Primary already advances its commitNum meaning that
+	// its safe for Replica to commit its opLog and advance its own commitNum
+	if args.CommitNum > r.commitNum {
+		// TODO
+		// Replica commits operations in its opLog which is in between
+		// its own commitNum and the PREPARE args' commitNum.
+
 	}
 
 	return nil
