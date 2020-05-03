@@ -14,10 +14,8 @@ type CommitEntry struct {
 	OpNum     int
 	CommitNum int
 
-	ClientID int
-	ReqNum   int
-	ReqOp    interface{}
-	Resp     interface{}
+	ClientReq clientRequest
+	Resp      interface{}
 }
 
 type ReplicaStatus int
@@ -289,8 +287,16 @@ func (r *Replica) primaryBlastPrepare(newRequest clientRequest) {
 						commitedAlready = true
 
 						if r.commitNum != savedCommitNum {
-							r.dlog("primary increments commitNum := %d", r.commitNum)
-							r.newCommitReadyChan <- struct{}{}
+							newReqCommitEntry := CommitEntry{
+								ViewNum:   savedViewNum,
+								OpNum:     savedOpNum,
+								CommitNum: savedCommitNum,
+								ClientReq: newRequest,
+								Resp:      nil,
+							}
+							r.dlog("primary increments commitNum=%d; sending commitEntry=%v", r.commitNum, newReqCommitEntry)
+							r.commitChan <- newReqCommitEntry
+							r.dlog("commitChan send done")
 						}
 
 						return
@@ -354,20 +360,6 @@ func (r *Replica) primarySendCommit() {
 			}
 
 		}(peerID)
-	}
-}
-
-func (r *Replica) commitChanSender() {
-	for range r.newCommitReadyChan {
-		r.mu.Lock()
-		savedViewNum := r.viewNum
-		savedOpNum := r.opNum
-		savedCommitNum := r.commitNum
-		var clientReqMessage clientRequest
-		if r.opNum > r.commitNum {
-
-		}
-		r.mu.Unlock()
 	}
 }
 
