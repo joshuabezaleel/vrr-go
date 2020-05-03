@@ -10,11 +10,14 @@ import (
 )
 
 type CommitEntry struct {
-	Command interface{}
+	ViewNum   int
+	OpNum     int
+	CommitNum int
 
-	Index int
-
-	View int
+	ClientID int
+	ReqNum   int
+	ReqOp    interface{}
+	Resp     interface{}
 }
 
 type ReplicaStatus int
@@ -351,6 +354,20 @@ func (r *Replica) primarySendCommit() {
 			}
 
 		}(peerID)
+	}
+}
+
+func (r *Replica) commitChanSender() {
+	for range r.newCommitReadyChan {
+		r.mu.Lock()
+		savedViewNum := r.viewNum
+		savedOpNum := r.opNum
+		savedCommitNum := r.commitNum
+		var clientReqMessage clientRequest
+		if r.opNum > r.commitNum {
+
+		}
+		r.mu.Unlock()
 	}
 }
 
