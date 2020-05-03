@@ -66,9 +66,12 @@ NIT
 
     yet, the second option make it impossible for Primary to know the clientID the operation that has not been commited belongs to, so let's try the former option first while heartbeat can be used for <COMMIT> messages when there's no incoming request.
 
-
+3/5/2020 - Sunday
+- Do not forget to add time.Now() to reset the timer on all possible state change
 
 === TO DO ===
 [ ] Implementing Replica's recovery
 [ ] Protocol optimisations
 [ ] Replica's ViewChange recovery after partition loss
+
+[ ] Checking whether timer is already reseted on all possible state changes

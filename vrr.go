@@ -479,6 +479,8 @@ func (r *Replica) Prepare(args PrepareArgs, reply *PrepareOKReply) error {
 
 			return nil
 		}
+		r.viewChangeResetEvent = time.Now()
+		r.dlog("state = %v;time = %v", r.status, r.viewChangeResetEvent)
 
 		r.opNum++
 		r.opLog = append(r.opLog, opLogEntry{opID: len(r.opLog), operation: args.ClientMessage.reqOp})
