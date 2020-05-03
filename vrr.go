@@ -580,6 +580,9 @@ func (r *Replica) Commit(args CommitArgs, reply *CommitReply) error {
 	}
 	r.dlog("Commit: %+v [currentView=%d]", args, r.viewNum)
 
+	r.viewChangeResetEvent = time.Now()
+	r.dlog("state = %v;time = %v", r.status, r.viewChangeResetEvent)
+
 	// TODO
 	// Replica receiving COMMIT message
 	// executes all operation in their opLog between their commitNum and
