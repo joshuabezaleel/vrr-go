@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 )
@@ -14,6 +15,11 @@ func init() {
 }
 
 type Harness struct {
+	mu sync.Mutex
+
+	commitChans []chan CommitEntry
+	commits     [][]CommitEntry
+
 	cluster []*Server
 
 	connected []bool
@@ -25,10 +31,13 @@ type Harness struct {
 func NewHarness(t *testing.T, n int) *Harness {
 	ns := make([]*Server, n)
 	connected := make([]bool, n)
+	commitChans := make([]chan CommitEntry, n)
+	commits := make([][]CommitEntry, n)
 	ready := make(chan interface{})
 
 	for i := 0; i < n; i++ {
-		ns[i] = NewServer(ready)
+		commitChans[i] = make(chan CommitEntry)
+		ns[i] = NewServer(ready, commitChans[i])
 		ns[i].Serve()
 	}
 
@@ -64,12 +73,21 @@ func NewHarness(t *testing.T, n int) *Harness {
 	}
 	close(ready)
 
-	return &Harness{
-		cluster:   ns,
-		connected: connected,
-		n:         n,
-		t:         t,
+	h := &Harness{
+		commitChans: commitChans,
+		commits:     commits,
+		cluster:     ns,
+		connected:   connected,
+		n:           n,
+		t:           t,
 	}
+
+	for i := 0; i < n; i++ {
+		go h.collectCommits(i)
+	}
+
+	return h
+
 }
 
 func (h *Harness) Shutdown() {
@@ -124,4 +142,13 @@ func tlog(format string, a ...interface{}) {
 
 func sleepMs(n int) {
 	time.Sleep(time.Duration(n) * time.Millisecond)
+}
+
+func (h *Harness) collectCommits(i int) {
+	for c := range h.commitChans[i] {
+		h.mu.Lock()
+		tlog("collectCommits(%d) got %+v", i, c)
+		h.commits[i] = append(h.commits[i], c)
+		h.mu.Unlock()
+	}
 }
